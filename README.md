@@ -2,14 +2,16 @@
 
 A sleek, professional Tampermonkey userscript that transforms your FYERS trading platform into a power‑trader dashboard. It combines a real‑time risk calculator with live NSE Open Interest (OI) spurts and market breadth data – all in a beautiful glass‑morphism interface.
 
+**Live Demo / Install:** [RiskManager.txt](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)
+
 ---
 
 ## ✨ Features
 
 ### 🧮 Live Risk Calculator
-- Automatically extracts **OHLC** data from the chart and computes:
+- Automatically extracts **OHLC** data from the TradingView chart and computes:
   - **Stop‑Loss (SL)** – `High – Low`
-  - **Ideal Quantity** – based on your custom risk amount (`Risk / SL`, rounded down)
+  - **Ideal Quantity** – based on your custom risk amount (`Risk ÷ SL`, rounded down)
   - **“Ideal” Indicator** – warns you when the SL exceeds **1% of LTP** (helpful for identifying tight stops)
 - **Live LTP** displayed for quick reference.
 - Smooth **pulse animations** on every value update – gives immediate visual feedback.
@@ -47,11 +49,11 @@ A sleek, professional Tampermonkey userscript that transforms your FYERS trading
 ## 🚀 Installation
 
 1. Install a userscript manager like **[Tampermonkey](https://www.tampermonkey.net/)** (or Violentmonkey) in your browser.
-2. Click the link below to install the script (or copy the source and create a new script manually):
-   - **Install from GitHub Raw:** `[https://github.com/yourusername/your-repo/raw/main/fyers-pro-tool.user.js](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)`
+2. Click the link below to install the script directly (Tampermonkey will detect it automatically):
+   - **Install:** [RiskManager.txt](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)
 3. The script will automatically run on `https://trade.fyers.in/*`.
 
-> **Note:** If you install manually, make sure the script has the required `@match` and `@grant` permissions.
+> **Manual Installation:** If the direct install doesn't work, copy the entire script source, create a new userscript in Tampermonkey, and paste it in.
 
 ---
 
@@ -84,6 +86,12 @@ The script remembers:
 
 ---
 
+## 📸 Screenshots
+
+*(Add screenshots of the panel in action here – Risk tab, OI tab, dragging, etc.)*
+
+---
+
 ## 🛠️ Development & Customisation
 
 If you'd like to tweak the script:
@@ -92,12 +100,6 @@ If you'd like to tweak the script:
 - For advanced changes (e.g., adding more data), refer to the NSE APIs used:
   - OI Spurts: `https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings`
   - Advance/Decline: `https://www.nseindia.com/api/NextApi/apiClient/marketWatchApi?functionName=getIndicesData&symbol=SECURITIES%20IN%20F%26O`
-
----
-
-## 📸 Screenshots
-
-*(Add screenshots of the panel in action here – Risk tab, OI tab, dragging, etc.)*
 
 ---
 
@@ -117,7 +119,7 @@ This project is open‑source and available under the **MIT License**.
 
 - Built for **FYERS** traders.
 - Powered by **NSE India** public APIs.
-- Crafted with ❤️ by [Your Name/Handle]
+- Crafted with ❤️ by [Anshu Paswan](https://github.com/Anshu-paswan)
 
 ---
 
