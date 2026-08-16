@@ -1,0 +1,404 @@
+// ==UserScript==
+// @name         FYERS Pro Tool (Risk + OI)
+// @namespace    http://tampermonkey.net/
+// @version      5.0
+// @description  Professional risk calculator & OI spurts with glass UI, LTP, and market breadth
+// @match        https://trade.fyers.in/*
+// @grant        GM_xmlhttpRequest
+// @connect      nseindia.com
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const STORAGE_RISK = "FYERS_RISK";
+    const STORAGE_POS = "FYERS_RISK_POS";
+
+    // ─── Position ────────────────────────────────────────────────
+    let savedPos = { top: '120px', left: '20px' };
+    try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_POS) || '{}');
+        if (stored.top && stored.left) {
+            const topNum = parseFloat(stored.top);
+            const leftNum = parseFloat(stored.left);
+            if (!isNaN(topNum) && !isNaN(leftNum) && topNum >= 0 && leftNum >= 0) {
+                savedPos = stored;
+            } else {
+                localStorage.removeItem(STORAGE_POS);
+            }
+        }
+    } catch (_) {}
+
+    // ─── Panel ────────────────────────────────────────────────────
+    const panel = document.createElement('div');
+    panel.id = 'fyers-pro-panel';
+    panel.style.cssText = `
+        position: fixed;
+        top: ${savedPos.top};
+        left: ${savedPos.left};
+        width: 240px;
+        min-width: 240px;
+        max-width: 400px;
+        background: rgba(14, 18, 30, 0.78);
+        backdrop-filter: blur(18px) saturate(1.6);
+        -webkit-backdrop-filter: blur(18px) saturate(1.6);
+        color: #eef2f8;
+        border-radius: 18px;
+        padding: 16px 18px 14px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+        font-size: 13px;
+        z-index: 999999999;
+        user-select: none;
+        border: 1px solid rgba(255, 215, 0, 0.12);
+        box-shadow: 0 16px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 215, 0, 0.04) inset, 0 0 30px rgba(255, 215, 0, 0.03);
+        transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    opacity 0.3s ease,
+                    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    box-shadow 0.3s ease;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        will-change: transform, opacity, width;
+    `;
+
+    // ─── HTML ─────────────────────────────────────────────────────
+    panel.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(255,215,0,0.08);">
+            <span style="font-weight:700;font-size:14px;letter-spacing:0.3px;background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">⚡ PRO</span>
+            <span style="font-size:9px;color:rgba(255,215,0,0.25);letter-spacing:0.8px;background:rgba(255,215,0,0.06);padding:2px 12px;border-radius:30px;border:1px solid rgba(255,215,0,0.06);">⌥ Q</span>
+        </div>
+
+        <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(0,0,0,0.25);border-radius:12px;padding:3px;">
+            <button id="tabRisk" style="flex:1;background:rgba(251,191,36,0.15);border:none;color:#fbbf24;padding:6px 0;border-radius:10px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.25s;">Risk</button>
+            <button id="tabOi" style="flex:1;background:transparent;border:none;color:#94a3b8;padding:6px 0;border-radius:10px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.25s;">OI</button>
+            <button id="refreshOi" style="background:transparent;border:none;color:#64748b;font-size:16px;cursor:pointer;padding:0 8px;transition:transform 0.4s;">⟳</button>
+        </div>
+
+        <div id="riskContent">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.2);border-radius:12px;padding:4px 4px 4px 14px;margin-bottom:10px;border:1px solid rgba(255,215,0,0.04);">
+                <label style="color:#94a3b8;font-size:11px;font-weight:500;letter-spacing:0.3px;">₹ Risk</label>
+                <input id="riskInput" type="number" value="${localStorage.getItem(STORAGE_RISK) || 500}" style="width:80px;background:transparent;color:#eef2f8;border:none;padding:6px 8px;font-size:14px;font-weight:600;text-align:right;outline:none;font-family:inherit;">
+                <button id="refreshRisk" style="background:transparent;border:none;color:#64748b;font-size:15px;cursor:pointer;padding:0 6px;transition:transform 0.2s;">⟳</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+                <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.04);">
+                    <div style="font-size:8px;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;font-weight:600;">SL</div>
+                    <div id="slValue" style="font-size:16px;font-weight:700;color:#fbbf24;transition:all 0.15s;">--</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.04);">
+                    <div style="font-size:8px;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;font-weight:600;">Qty</div>
+                    <div id="qtyValue" style="font-size:16px;font-weight:700;color:#60a5fa;transition:all 0.15s;">--</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.04);">
+                    <div style="font-size:8px;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;font-weight:600;">Ideal</div>
+                    <div id="idealValue" style="font-size:15px;font-weight:700;transition:all 0.15s;">—</div>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#64748b;margin-top:4px;padding:0 2px;">
+                <span>LTP: <span id="ltpDisplay" style="color:#eef2f8;font-weight:600;">--</span></span>
+                <span id="riskStatus" style="color:#64748b;transition:color 0.3s;">⏳ awaiting data</span>
+            </div>
+        </div>
+
+        <div id="oiContent" style="display:none;max-height:320px;overflow-y:auto;margin-top:4px;">
+            <div id="oiSummary" style="font-size:11px;color:#94a3b8;padding:6px 0 8px;border-bottom:1px solid rgba(255,215,0,0.06);margin-bottom:6px;display:flex;justify-content:space-around;">
+                <span>⬆ <span id="advCount" style="color:#34d399;font-weight:600;">--</span></span>
+                <span>⬇ <span id="decCount" style="color:#f87171;font-weight:600;">--</span></span>
+            </div>
+            <div id="oiContainer" style="padding:4px 0;text-align:center;color:#64748b;font-size:12px;">Click OI tab to load</div>
+        </div>
+
+        <div id="dragHandle" style="display:flex;justify-content:center;margin-top:10px;padding-top:6px;border-top:1px solid rgba(255,215,0,0.04);cursor:grab;">
+            <span style="font-size:8px;color:rgba(255,215,0,0.15);letter-spacing:1.5px;font-weight:500;">⠿ drag</span>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    // ─── Refs ─────────────────────────────────────────────────────
+    const riskInput = document.getElementById('riskInput');
+    const slValue = document.getElementById('slValue');
+    const qtyValue = document.getElementById('qtyValue');
+    const idealValue = document.getElementById('idealValue');
+    const ltpDisplay = document.getElementById('ltpDisplay');
+    const riskStatus = document.getElementById('riskStatus');
+    const riskContent = document.getElementById('riskContent');
+    const oiContent = document.getElementById('oiContent');
+    const oiContainer = document.getElementById('oiContainer');
+    const advCount = document.getElementById('advCount');
+    const decCount = document.getElementById('decCount');
+    const tabRisk = document.getElementById('tabRisk');
+    const tabOi = document.getElementById('tabOi');
+    const refreshRiskBtn = document.getElementById('refreshRisk');
+    const refreshOiBtn = document.getElementById('refreshOi');
+    const dragHandle = document.getElementById('dragHandle');
+
+    // ─── Tabs ─────────────────────────────────────────────────────
+    let activeTab = 'risk';
+    function switchTab(tab) {
+        activeTab = tab;
+        tabRisk.style.background = tab === 'risk' ? 'rgba(251,191,36,0.15)' : 'transparent';
+        tabRisk.style.color = tab === 'risk' ? '#fbbf24' : '#94a3b8';
+        tabOi.style.background = tab === 'oi' ? 'rgba(251,191,36,0.15)' : 'transparent';
+        tabOi.style.color = tab === 'oi' ? '#fbbf24' : '#94a3b8';
+        riskContent.style.display = tab === 'risk' ? 'block' : 'none';
+        oiContent.style.display = tab === 'oi' ? 'block' : 'none';
+        panel.style.width = tab === 'oi' ? '340px' : '240px';
+        if (tab === 'oi' && !window.oiData) {
+            fetchOiData();
+            fetchAdvDec();
+        }
+    }
+    tabRisk.addEventListener('click', () => switchTab('risk'));
+    tabOi.addEventListener('click', () => switchTab('oi'));
+
+    // ─── Risk input ──────────────────────────────────────────────
+    riskInput.addEventListener('input', function() {
+        localStorage.setItem(STORAGE_RISK, this.value);
+        updateRisk();
+    });
+    refreshRiskBtn.addEventListener('click', updateRisk);
+
+    // ─── Drag (only via handle) ──────────────────────────────────
+    let isDragging = false, ox = 0, oy = 0;
+    dragHandle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        ox = e.clientX - rect.left;
+        oy = e.clientY - rect.top;
+        panel.style.transition = 'none';
+        panel.style.cursor = 'grabbing';
+        dragHandle.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        let x = e.clientX - ox;
+        let y = e.clientY - oy;
+        x = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, x));
+        y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, y));
+        panel.style.left = x + 'px';
+        panel.style.top = y + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            panel.style.transition = '';
+            panel.style.cursor = 'default';
+            dragHandle.style.cursor = 'grab';
+            localStorage.setItem(STORAGE_POS, JSON.stringify({ left: panel.style.left, top: panel.style.top }));
+        }
+    });
+
+    // ─── Hotkey Toggle ──────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && e.key.toLowerCase() === 'q') {
+            e.preventDefault();
+            const isHidden = panel.style.opacity === '0';
+            panel.style.opacity = isHidden ? '1' : '0';
+            panel.style.transform = isHidden ? 'translateY(0) scale(1)' : 'translateY(6px) scale(0.97)';
+            panel.style.pointerEvents = isHidden ? 'auto' : 'none';
+        }
+    });
+
+    // ─── Pulse helper ─────────────────────────────────────────────
+    function pulse(el) {
+        if (!el) return;
+        el.style.transition = 'transform 0.15s ease, color 0.15s ease';
+        el.style.transform = 'scale(1.12)';
+        setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
+    }
+
+    // ─── Risk Update ─────────────────────────────────────────────
+    let lastLTP = 0;
+    function updateRisk() {
+        let found = false, H, L, C;
+        try {
+            if (window.tvWidget && window.tvWidget._iFrame) {
+                const doc = window.tvWidget._iFrame.contentDocument || window.tvWidget._iFrame.contentWindow.document;
+                const text = doc.body.innerText;
+                const m = text.match(/O\s*([\d,]+\.\d+)\s*H\s*([\d,]+\.\d+)\s*L\s*([\d,]+\.\d+)\s*C\s*([\d,]+\.\d+)/);
+                if (m) {
+                    H = parseFloat(m[2].replace(/,/g, ''));
+                    L = parseFloat(m[3].replace(/,/g, ''));
+                    C = parseFloat(m[4].replace(/,/g, ''));
+                    found = true;
+                }
+            }
+        } catch (_) {}
+        if (!found) {
+            try {
+                document.querySelectorAll('iframe').forEach(ifr => {
+                    try {
+                        const doc = ifr.contentDocument || ifr.contentWindow.document;
+                        if (!doc) return;
+                        const text = doc.body.innerText;
+                        const m = text.match(/O\s*([\d,]+\.\d+)\s*H\s*([\d,]+\.\d+)\s*L\s*([\d,]+\.\d+)\s*C\s*([\d,]+\.\d+)/);
+                        if (m) {
+                            H = parseFloat(m[2].replace(/,/g, ''));
+                            L = parseFloat(m[3].replace(/,/g, ''));
+                            C = parseFloat(m[4].replace(/,/g, ''));
+                            found = true;
+                            throw 'break';
+                        }
+                    } catch (_) {}
+                });
+            } catch (_) {}
+        }
+
+        if (!found) {
+            riskStatus.textContent = '❌ no OHLC';
+            riskStatus.style.color = '#f87171';
+            slValue.textContent = '--';
+            qtyValue.textContent = '--';
+            idealValue.textContent = '—';
+            idealValue.style.color = '#64748b';
+            ltpDisplay.textContent = '--';
+            return;
+        }
+
+        const SL = H - L;
+        const risk = parseFloat(riskInput.value) || 0;
+        const qty = SL > 0 ? Math.floor(risk / SL) : 0;
+        const ideal = SL < (C * 0.01);
+
+        // Update values with pulse
+        const slStr = SL.toFixed(2);
+        if (slValue.textContent !== slStr) {
+            slValue.textContent = slStr;
+            pulse(slValue);
+        }
+        const qtyStr = String(qty);
+        if (qtyValue.textContent !== qtyStr) {
+            qtyValue.textContent = qtyStr;
+            pulse(qtyValue);
+        }
+        const idealStr = ideal ? '✅ YES' : '❌ NO';
+        if (idealValue.textContent !== idealStr) {
+            idealValue.textContent = idealStr;
+            idealValue.style.color = ideal ? '#34d399' : '#f87171';
+            pulse(idealValue);
+        }
+
+        // LTP
+        const ltpStr = C.toFixed(2);
+        if (ltpDisplay.textContent !== ltpStr) {
+            ltpDisplay.textContent = ltpStr;
+            pulse(ltpDisplay);
+        }
+
+        riskStatus.textContent = '✅ live';
+        riskStatus.style.color = '#34d399';
+    }
+
+    // ─── Advance / Decline ───────────────────────────────────────
+    function fetchAdvDec() {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: 'https://www.nseindia.com/api/NextApi/apiClient/marketWatchApi?functionName=getIndicesData&symbol=SECURITIES%20IN%20F%26O',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.nseindia.com/' },
+            onload: function(res) {
+                try {
+                    const json = JSON.parse(res.responseText);
+                    const data = json?.data?.aduCount;
+                    if (data) {
+                        advCount.textContent = data.advances ?? '--';
+                        decCount.textContent = data.declines ?? '--';
+                    } else {
+                        advCount.textContent = '--';
+                        decCount.textContent = '--';
+                    }
+                } catch (e) {
+                    advCount.textContent = 'err';
+                    decCount.textContent = 'err';
+                }
+            },
+            onerror: function() {
+                advCount.textContent = '--';
+                decCount.textContent = '--';
+            }
+        });
+    }
+
+    // ─── OI Fetch ────────────────────────────────────────────────
+    let oiData = null;
+    function fetchOiData() {
+        oiContainer.innerHTML = '<div style="color:#64748b;padding:16px;font-size:12px;">loading…</div>';
+        refreshOiBtn.style.transform = 'rotate(45deg)';
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: 'https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.nseindia.com/' },
+            onload: function(res) {
+                refreshOiBtn.style.transform = '';
+                try {
+                    const json = JSON.parse(res.responseText);
+                    const data = json.data || [];
+                    if (!data.length) { oiContainer.innerHTML = '<div style="color:#f87171;padding:16px;font-size:12px;">no data</div>'; return; }
+                    oiData = data;
+                    window.oiData = data;
+                    renderOi(data);
+                } catch (e) {
+                    oiContainer.innerHTML = '<div style="color:#f87171;padding:16px;font-size:12px;">parse error</div>';
+                }
+            },
+            onerror: function() {
+                refreshOiBtn.style.transform = '';
+                oiContainer.innerHTML = '<div style="color:#f87171;padding:16px;font-size:12px;">network error</div>';
+            }
+        });
+    }
+
+    function renderOi(data) {
+        const sorted = data.sort((a,b) => b.avgInOI - a.avgInOI).slice(0,20);
+        let html = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr style="border-bottom:1px solid rgba(255,215,0,0.06);">
+                <th style="text-align:left;padding:4px 6px;color:#94a3b8;font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">Symbol</th>
+                <th style="text-align:left;padding:4px 6px;color:#94a3b8;font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">% Chg</th>
+                <th style="text-align:left;padding:4px 6px;color:#94a3b8;font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">OI Chg</th>
+                <th style="text-align:left;padding:4px 6px;color:#94a3b8;font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">LTP</th>
+            </tr></thead><tbody>`;
+        sorted.forEach((item, idx) => {
+            const pct = item.avgInOI || 0;
+            const pctColor = pct >= 0 ? '#34d399' : '#f87171';
+            const bg = idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.08)';
+            html += `<tr style="background:${bg};">
+                <td style="padding:4px 6px;color:#fbbf24;font-weight:600;">${item.symbol||'--'}</td>
+                <td style="padding:4px 6px;color:${pctColor};font-weight:600;">${pct.toFixed(2)}%</td>
+                <td style="padding:4px 6px;color:#eef2f8;">${(item.changeInOI||0).toLocaleString()}</td>
+                <td style="padding:4px 6px;color:#94a3b8;">₹${(item.underlyingValue||0).toFixed(2)}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        oiContainer.innerHTML = html;
+    }
+
+    refreshOiBtn.addEventListener('click', function() {
+        if (activeTab === 'oi') {
+            fetchOiData();
+            fetchAdvDec();
+        } else {
+            switchTab('oi');
+        }
+    });
+
+    // ─── Periodic update ────────────────────────────────────────
+    setInterval(updateRisk, 1000);
+    setTimeout(updateRisk, 1200);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateRisk(); });
+
+    // ─── Start with risk tab ─────────────────────────────────────
+    switchTab('risk');
+
+    // ─── Fade in ──────────────────────────────────────────────────
+    panel.style.opacity = '0';
+    panel.style.transform = 'translateY(12px) scale(0.97)';
+    requestAnimationFrame(() => {
+        panel.style.transition = 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        panel.style.opacity = '1';
+        panel.style.transform = 'translateY(0) scale(1)';
+    });
+
+    console.log('✨ FYERS Pro Panel loaded');
+})();
