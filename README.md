@@ -1,3 +1,115 @@
+# 📊 FYERS Pro Tool – Risk Calculator + OI Spurts
+
+A sleek, professional Tampermonkey userscript that transforms your FYERS trading platform into a power‑trader dashboard. It combines a real‑time risk calculator with live NSE Open Interest (OI) spurts and market breadth data – all in a beautiful glass‑morphism interface.
+
+[![Download Script](https://img.shields.io/badge/Download-Script-blue?style=for-the-badge&logo=javascript)](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)
+[![Tampermonkey](https://img.shields.io/badge/Tampermonkey-Compatible-green?style=for-the-badge&logo=tampermonkey)](https://www.tampermonkey.net/)
+
+---
+
+## 📸 Screenshot
+
+![FYERS Pro Tool Dashboard](https://github.com/Anshu-paswan/Riskmanager-For-Trader/blob/main/Capture.PNG)
+
+---
+
+## ✨ Features
+
+### 🧮 Live Risk Calculator
+- Automatically extracts **OHLC** data from the TradingView chart and computes:
+  - **Stop‑Loss (SL)** – `High – Low`
+  - **Ideal Quantity** – based on your custom risk amount (`Risk ÷ SL`, rounded down)
+  - **“Ideal” Indicator** – warns you when the SL exceeds **1% of LTP** (helpful for identifying tight stops)
+- **Live LTP** displayed for quick reference.
+- Smooth **pulse animations** on every value update – gives immediate visual feedback.
+
+### 📈 OI Spurts Viewer
+- Fetches the **top 20** F&O stocks with the highest percentage change in Open Interest.
+- Displays:
+  - **Symbol**
+  - **% Change** (in OI)
+  - **OI Change** (absolute change)
+  - **LTP** (Last Traded Price)
+- Striped rows and hover effects for better readability.
+
+### 📊 Market Breadth (Advance / Decline)
+- Shows **Advance** and **Decline** counts for all securities in the F&O segment – a quick gauge of overall market sentiment.
+
+### 🖥️ Professional Glass‑Morphism UI
+- Semi‑transparent backdrop with blur, gold/amber accents for a premium feel.
+- Smooth tab switching with width transitions.
+- Compact and uncluttered – perfect for active trading sessions.
+
+### 🖱️ Draggable & Persistent
+- Drag the panel only by the **⠿ drag** handle – no accidental moves.
+- Position and risk amount are saved automatically in `localStorage` – they persist across page reloads.
+
+### ⌨️ Keyboard Shortcut
+- Press **`Alt+Q`** to show/hide the panel instantly.
+
+### 🔄 Auto‑Refresh
+- Risk data updates **every second** while the chart is open.
+- OI and breadth data refresh on demand – just click the **↻** button.
+
+---
+
+## 🚀 Installation
+
+### Method 1: One‑Click Install (Recommended)
+1. Install **[Tampermonkey](https://www.tampermonkey.net/)** (or Violentmonkey) in your browser.
+2. Click the link below – Tampermonkey will detect the script automatically:
+   👉 **[Install FYERS Pro Tool](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)**
+3. Click **"Install"** on the Tampermonkey page.
+
+### Method 2: Manual Installation
+1. Copy the entire script from **[RiskManager.txt](https://raw.githubusercontent.com/Anshu-paswan/Riskmanager-For-Trader/refs/heads/main/RiskManager.txt)**.
+2. Open Tampermonkey → **Create a new script**.
+3. Paste the code and save (`Ctrl+S`).
+
+---
+
+## 🧭 How to Use
+
+| Action | How to do it |
+|--------|--------------|
+| **Switch Tabs** | Click **Risk** or **OI** at the top of the panel. |
+| **Adjust Risk Amount** | Type any number in the **₹ Risk** input – the quantity updates live. |
+| **Refresh OI** | Click the **↻** button to reload OI spurts and Advance/Decline. |
+| **Move Panel** | Grab the bottom‑right **⠿ drag** handle and drag anywhere on the screen. |
+| **Hide/Show Panel** | Press **`Alt+Q`** to toggle visibility. |
+
+---
+
+## ⚙️ Configuration
+
+No extra configuration needed – just install and go.  
+The script remembers:
+- Your preferred **risk amount**.
+- The **panel position** on the screen.
+
+---
+
+## 📝 Important Notes
+
+- The script relies on the OHLC data displayed inside the **TradingView chart iframe** on FYERS. Make sure the chart is fully loaded and visible.
+- OI and market breadth data are fetched from NSE’s public APIs – a stable internet connection is required.
+- This is a **client‑side** tool; all data is processed locally in your browser. No data is sent anywhere.
+- The script only runs on `https://trade.fyers.in/*`.
+
+---
+
+## 🛠️ Development & Customisation
+
+If you'd like to tweak the script:
+- Open the userscript in Tampermonkey and edit the code.
+- The CSS is inline for easy modification – you can change colours, sizes, or layout.
+- For advanced changes (e.g., adding more data), refer to the NSE APIs used:
+  - OI Spurts: `https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings`
+  - Advance/Decline: `https://www.nseindia.com/api/NextApi/apiClient/marketWatchApi?functionName=getIndicesData&symbol=SECURITIES%20IN%20F%26O`
+
+---
+
+## 📁 Repository Structure
 
 ---
 
